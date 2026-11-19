@@ -8,6 +8,29 @@ const QC = require("../models/QC");
 const User = require("../models/User");
 const Quote = require("../models/Quote");
 
+// Get workspace ID
+const getWorkspaceId = (user) => {
+  return user.businessId ||
+    (user.role === "Admin" ? user._id : null);
+};
+
+// Get request access scope
+const getRequestScope = (user) => {
+  if (["Admin", "Service Desk"].includes(user.role)) {
+    const businessId = getWorkspaceId(user);
+
+    return businessId
+      ? { businessId }
+      : { _id: null };
+  }
+
+  if (user.role === "Technician") {
+    return { assignedTechnician: user._id };
+  }
+
+  return { createdBy: user._id };
+};
+
 // CREATE SERVICE REQUEST
 const createRequest = async (req, res) => {
   try {
@@ -27,24 +50,54 @@ const createRequest = async (req, res) => {
       });
     }
 
-    const customerExists = await Customer.findOne({
+    const isOperationsStaff = [
+      "Admin",
+      "Service Desk"
+    ].includes(req.user.role);
+
+    const businessId = isOperationsStaff
+      ? getWorkspaceId(req.user)
+      : null;
+
+    if (isOperationsStaff && !businessId) {
+      return res.status(403).json({
+        success: false,
+        message: "User is not connected to a business workspace"
+      });
+    }
+
+    const customerFilter = {
       _id: customer,
-      createdBy: req.user._id,
       isActive: true
-    });
+    };
+
+    if (isOperationsStaff) {
+      customerFilter.businessId = businessId;
+    } else {
+      customerFilter.createdBy = req.user._id;
+    }
+
+    const customerExists = await Customer.findOne(customerFilter);
 
     if (!customerExists) {
       return res.status(404).json({
         success: false,
-        message: "Customer not found"
+        message: "Customer not found in your workspace"
       });
     }
 
-    const assetExists = await Asset.findOne({
+    const assetFilter = {
       _id: asset,
-      customer,
-      createdBy: req.user._id
-    });
+      customer
+    };
+
+    if (isOperationsStaff) {
+      assetFilter.businessId = businessId;
+    } else {
+      assetFilter.createdBy = req.user._id;
+    }
+
+    const assetExists = await Asset.findOne(assetFilter);
 
     if (!assetExists) {
       return res.status(404).json({
@@ -63,7 +116,10 @@ const createRequest = async (req, res) => {
       priority: priority || "Normal",
       preferredDate: preferredDate || null,
       serviceAddress,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      businessId: isOperationsStaff
+        ? businessId
+        : customerExists.businessId || null
     });
 
     res.status(201).json({
@@ -71,6 +127,7 @@ const createRequest = async (req, res) => {
       message: "Service request created successfully",
       serviceRequest
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -82,11 +139,12 @@ const createRequest = async (req, res) => {
 // GET ALL REQUESTS
 const getRequests = async (req, res) => {
   try {
-    const requests = await ServiceRequest.find({
-      createdBy: req.user._id
-    })
+    const requests = await ServiceRequest.find(
+      getRequestScope(req.user)
+    )
       .populate("customer", "name email phone")
       .populate("asset", "category brand model serialNumber")
+      .populate("assignedTechnician", "name email phone role")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -94,6 +152,7 @@ const getRequests = async (req, res) => {
       count: requests.length,
       requests
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -107,10 +166,11 @@ const getRequestById = async (req, res) => {
   try {
     const request = await ServiceRequest.findOne({
       _id: req.params.id,
-      createdBy: req.user._id
+      ...getRequestScope(req.user)
     })
       .populate("customer", "name email phone address")
-      .populate("asset", "category brand model serialNumber condition");
+      .populate("asset", "category brand model serialNumber condition")
+      .populate("assignedTechnician", "name email phone role");
 
     if (!request) {
       return res.status(404).json({
@@ -123,6 +183,7 @@ const getRequestById = async (req, res) => {
       success: true,
       request
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -138,13 +199,13 @@ const updateRequestStatus = async (req, res) => {
 
     const request = await ServiceRequest.findOne({
       _id: req.params.id,
-      createdBy: req.user._id
+      ...getRequestScope(req.user)
     });
 
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Service request not found"
+        message: "Service request not found or access denied"
       });
     }
 
@@ -204,7 +265,7 @@ const updateRequestStatus = async (req, res) => {
     if (status === "QC Passed" || status === "QC Failed") {
       const qcRecord = await QC.findOne({
         serviceRequest: request._id
-      });
+      }).sort({ createdAt: -1 });
 
       if (!qcRecord) {
         return res.status(400).json({
@@ -218,7 +279,7 @@ const updateRequestStatus = async (req, res) => {
       if (qcRecord.result !== expectedResult) {
         return res.status(400).json({
           success: false,
-          message: "QC result does not match requested status"
+          message: "Latest QC result does not match requested status"
         });
       }
     }
@@ -231,6 +292,7 @@ const updateRequestStatus = async (req, res) => {
       message: "Request status updated successfully",
       request
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -251,25 +313,38 @@ const assignTechnician = async (req, res) => {
       });
     }
 
-    const request = await ServiceRequest.findById(req.params.id);
+    const businessId = getWorkspaceId(req.user);
+
+    if (!businessId) {
+      return res.status(403).json({
+        success: false,
+        message: "User is not connected to a business workspace"
+      });
+    }
+
+    const request = await ServiceRequest.findOne({
+      _id: req.params.id,
+      businessId
+    });
 
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Service request not found"
+        message: "Service request not found in your workspace"
       });
     }
 
     const technician = await User.findOne({
       _id: technicianId,
       role: "Technician",
+      businessId,
       isActive: true
     });
 
     if (!technician) {
       return res.status(404).json({
         success: false,
-        message: "Active technician not found"
+        message: "Active technician from your workspace not found"
       });
     }
 
@@ -296,6 +371,7 @@ const assignTechnician = async (req, res) => {
       message: "Technician assigned successfully",
       request
     });
+
   } catch (error) {
     res.status(500).json({
       success: false,

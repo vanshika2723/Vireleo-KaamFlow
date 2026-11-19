@@ -1,7 +1,15 @@
 
+const mongoose = require("mongoose");
 const RepairLog = require("../models/RepairLog");
 const ServiceRequest = require("../models/ServiceRequest");
 
+// WORKSPACE HELPER
+const getWorkspaceId = (user) => {
+  return user.businessId ||
+    (user.role === "Admin" ? user._id : null);
+};
+
+// CREATE REPAIR LOG
 const createRepairLog = async (req, res) => {
   try {
     const {
@@ -11,13 +19,6 @@ const createRepairLog = async (req, res) => {
       technicianNotes
     } = req.body;
 
-    if (!workPerformed || !workPerformed.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Work performed is required"
-      });
-    }
-
     if (req.user.role !== "Technician") {
       return res.status(403).json({
         success: false,
@@ -25,9 +26,24 @@ const createRepairLog = async (req, res) => {
       });
     }
 
+    if (!mongoose.isValidObjectId(req.params.requestId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid service request ID"
+      });
+    }
+
+    if (!workPerformed || !workPerformed.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Work performed is required"
+      });
+    }
+
     const request = await ServiceRequest.findOne({
       _id: req.params.requestId,
-      assignedTechnician: req.user._id
+      assignedTechnician: req.user._id,
+      businessId: req.user.businessId
     });
 
     if (!request) {
@@ -37,10 +53,10 @@ const createRepairLog = async (req, res) => {
       });
     }
 
-    if (!request.assignedTechnician) {
+    if (!["Repair In Progress", "QC Failed"].includes(request.status)) {
       return res.status(400).json({
         success: false,
-        message: "Assign a technician before starting repair"
+        message: "Repair log can only be created during active repair or rework"
       });
     }
 
@@ -94,36 +110,61 @@ const createRepairLog = async (req, res) => {
   }
 };
 
+// GET REPAIR LOGS
 const getRepairLogs = async (req, res) => {
   try {
-    const request = await ServiceRequest.findById(req.params.requestId);
+    const { requestId } = req.params;
 
-    if (!request) {
-      return res.status(404).json({
+    if (!mongoose.isValidObjectId(requestId)) {
+      return res.status(400).json({
         success: false,
-        message: "Service request not found"
+        message: "Invalid service request ID"
       });
     }
 
-    const isAssignedTechnician =
-      request.assignedTechnician?.toString() === req.user._id.toString();
+    const user = req.user;
+    let request = null;
 
-    const isStaff = [
-      "Admin",
-      "Service Desk",
-      "QC Reviewer"
-    ].includes(req.user.role);
+    if (["Admin", "Service Desk"].includes(user.role)) {
+      const businessId = getWorkspaceId(user);
 
-    if (!isAssignedTechnician && !isStaff) {
+      if (!businessId) {
+        return res.status(403).json({
+          success: false,
+          message: "User is not connected to a workspace"
+        });
+      }
+
+      request = await ServiceRequest.findOne({
+        _id: requestId,
+        businessId
+      });
+
+    } else if (user.role === "Technician") {
+      request = await ServiceRequest.findOne({
+        _id: requestId,
+        assignedTechnician: user._id,
+        businessId: user.businessId
+      });
+    } else {
       return res.status(403).json({
         success: false,
         message: "You are not allowed to view these repair logs"
       });
     }
 
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Service request not found in your workspace"
+      });
+    }
+
     const repairLogs = await RepairLog.find({
       serviceRequest: request._id
-    }).populate("technician", "name email");
+    })
+      .populate("technician", "name email")
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,

@@ -1,6 +1,22 @@
 
 const Customer = require("../models/Customer");
 
+// Shared workspace access for Admin and Service Desk
+const getCustomerScope = (user) => {
+  if (["Admin", "Service Desk"].includes(user.role)) {
+    const businessId =
+      user.businessId ||
+      (user.role === "Admin" ? user._id : null);
+
+    if (businessId) {
+      return { businessId };
+    }
+  }
+
+  // Other roles can access only their own records
+  return { createdBy: user._id };
+};
+
 // CREATE CUSTOMER
 const createCustomer = async (req, res) => {
   try {
@@ -13,6 +29,10 @@ const createCustomer = async (req, res) => {
       });
     }
 
+    const businessId =
+      req.user.businessId ||
+      (req.user.role === "Admin" ? req.user._id : null);
+
     const customer = await Customer.create({
       name,
       email,
@@ -20,7 +40,8 @@ const createCustomer = async (req, res) => {
       address,
       city,
       notes,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      businessId
     });
 
     res.status(201).json({
@@ -41,7 +62,7 @@ const createCustomer = async (req, res) => {
 const getCustomers = async (req, res) => {
   try {
     const customers = await Customer.find({
-      createdBy: req.user._id,
+      ...getCustomerScope(req.user),
       isActive: true
     }).sort({ createdAt: -1 });
 
@@ -64,7 +85,7 @@ const getCustomerById = async (req, res) => {
   try {
     const customer = await Customer.findOne({
       _id: req.params.id,
-      createdBy: req.user._id,
+      ...getCustomerScope(req.user),
       isActive: true
     });
 
@@ -111,7 +132,7 @@ const updateCustomer = async (req, res) => {
     const customer = await Customer.findOneAndUpdate(
       {
         _id: req.params.id,
-        createdBy: req.user._id,
+        ...getCustomerScope(req.user),
         isActive: true
       },
       updates,
@@ -148,7 +169,7 @@ const deleteCustomer = async (req, res) => {
     const customer = await Customer.findOneAndUpdate(
       {
         _id: req.params.id,
-        createdBy: req.user._id,
+        ...getCustomerScope(req.user),
         isActive: true
       },
       { isActive: false },

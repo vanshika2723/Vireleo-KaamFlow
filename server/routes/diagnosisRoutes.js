@@ -1,9 +1,12 @@
 
 const express = require("express");
-
 const router = express.Router();
 
-const { protect } = require("../middleware/authMiddleware");
+const {
+  protect,
+  authorize
+} = require("../middleware/authMiddleware");
+
 const upload = require("../middleware/uploadMiddleware");
 
 const {
@@ -15,13 +18,31 @@ const {
 
 router.use(protect);
 
-router.post("/", createDiagnosis);
-router.get("/request/:requestId", getDiagnosisByRequest);
-router.put("/:id", updateDiagnosis);
+// Create diagnosis
+router.post(
+  "/",
+  authorize("Admin", "Service Desk", "Technician"),
+  createDiagnosis
+);
+
+// View diagnosis
+router.get(
+  "/request/:requestId",
+  authorize("Admin", "Service Desk", "Technician"),
+  getDiagnosisByRequest
+);
+
+// Update diagnosis
+router.put(
+  "/:id",
+  authorize("Admin", "Service Desk", "Technician"),
+  updateDiagnosis
+);
 
 // Upload diagnosis evidence
 router.post(
   "/request/:requestId/evidence",
+  authorize("Admin", "Service Desk", "Technician"),
   upload.single("evidence"),
   uploadEvidence
 );

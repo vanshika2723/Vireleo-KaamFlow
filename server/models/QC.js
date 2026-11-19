@@ -6,8 +6,7 @@ const qcSchema = new mongoose.Schema(
     serviceRequest: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ServiceRequest",
-      required: true,
-      unique: true
+      required: true
     },
 
     repairLog: {

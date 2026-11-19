@@ -1,11 +1,44 @@
 
 const FollowUp = require("../models/FollowUp");
+const ServiceRequest = require("../models/ServiceRequest");
+
+// WORKSPACE HELPER
+const getWorkspaceId = (user) => {
+  return user.businessId ||
+    (user.role === "Admin" ? user._id : null);
+};
 
 // GET FIXLOOP OUTCOME ANALYTICS
 const getOutcomeAnalytics = async (req, res) => {
   try {
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to view outcome analytics"
+      });
+    }
+
+    const businessId = getWorkspaceId(req.user);
+
+    if (!businessId) {
+      return res.status(403).json({
+        success: false,
+        message: "User is not connected to a workspace"
+      });
+    }
+
+    // Find all requests belonging to this workspace
+    const requests = await ServiceRequest.find({
+      businessId
+    }).select("_id");
+
+    const requestIds = requests.map(
+      (request) => request._id
+    );
+
+    // Workspace-level follow-up filter
     const filter = {
-      createdBy: req.user._id
+      serviceRequest: { $in: requestIds }
     };
 
     const totalFollowUps = await FollowUp.countDocuments(filter);
@@ -83,6 +116,8 @@ const getOutcomeAnalytics = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Outcome Analytics Error:", error);
+
     res.status(500).json({
       success: false,
       message: error.message

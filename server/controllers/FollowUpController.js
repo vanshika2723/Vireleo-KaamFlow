@@ -1,29 +1,73 @@
 
+const mongoose = require("mongoose");
 const FollowUp = require("../models/FollowUp");
 const ServiceRequest = require("../models/ServiceRequest");
+
+// WORKSPACE HELPER
+const getWorkspaceId = (user) => {
+  return user.businessId ||
+    (user.role === "Admin" ? user._id : null);
+};
+
+// GET ACCESSIBLE FOLLOW-UP
+const getAccessibleFollowUp = async (id, user) => {
+  const businessId = getWorkspaceId(user);
+
+  if (!businessId) return null;
+
+  const followUp = await FollowUp.findById(id)
+    .populate("serviceRequest");
+
+  if (
+    !followUp ||
+    !followUp.serviceRequest ||
+    followUp.serviceRequest.businessId?.toString() !==
+      businessId.toString()
+  ) {
+    return null;
+  }
+
+  return followUp;
+};
 
 // CREATE FOLLOW-UP
 const createFollowUp = async (req, res) => {
   try {
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Admin or Service Desk can create follow-ups"
+      });
+    }
+
     const { requestId, scheduledAt } = req.body;
 
-    if (!requestId) {
+    if (!requestId || !mongoose.isValidObjectId(requestId)) {
       return res.status(400).json({
         success: false,
-        message: "Service request ID is required"
+        message: "Valid service request ID is required"
+      });
+    }
+
+    const businessId = getWorkspaceId(req.user);
+
+    if (!businessId) {
+      return res.status(403).json({
+        success: false,
+        message: "User is not connected to a workspace"
       });
     }
 
     const request = await ServiceRequest.findOne({
       _id: requestId,
-      createdBy: req.user._id,
+      businessId,
       status: "Completed"
     });
 
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Completed service request not found"
+        message: "Completed service request not found in your workspace"
       });
     }
 
@@ -62,8 +106,32 @@ const createFollowUp = async (req, res) => {
 // GET ALL FOLLOW-UPS
 const getFollowUps = async (req, res) => {
   try {
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot access follow-ups"
+      });
+    }
+
+    const businessId = getWorkspaceId(req.user);
+
+    if (!businessId) {
+      return res.status(403).json({
+        success: false,
+        message: "User is not connected to a workspace"
+      });
+    }
+
+    const requests = await ServiceRequest.find({
+      businessId
+    }).select("_id");
+
+    const requestIds = requests.map(
+      (request) => request._id
+    );
+
     const followUps = await FollowUp.find({
-      createdBy: req.user._id
+      serviceRequest: { $in: requestIds }
     })
       .populate("customer", "name email phone")
       .populate("serviceRequest", "requestId status")
@@ -86,19 +154,33 @@ const getFollowUps = async (req, res) => {
 // GET SINGLE FOLLOW-UP
 const getFollowUpById = async (req, res) => {
   try {
-    const followUp = await FollowUp.findOne({
-      _id: req.params.id,
-      createdBy: req.user._id
-    })
-      .populate("customer", "name email phone")
-      .populate("serviceRequest");
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot access this follow-up"
+      });
+    }
+
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid follow-up ID"
+      });
+    }
+
+    const followUp = await getAccessibleFollowUp(
+      req.params.id,
+      req.user
+    );
 
     if (!followUp) {
       return res.status(404).json({
         success: false,
-        message: "Follow-up not found"
+        message: "Follow-up not found in your workspace"
       });
     }
+
+    await followUp.populate("customer", "name email phone");
 
     res.status(200).json({
       success: true,
@@ -116,6 +198,13 @@ const getFollowUpById = async (req, res) => {
 // SUBMIT CUSTOMER OUTCOME
 const submitOutcome = async (req, res) => {
   try {
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Admin or Service Desk can submit outcomes"
+      });
+    }
+
     const {
       outcome,
       customerFeedback,
@@ -140,9 +229,11 @@ const submitOutcome = async (req, res) => {
     if (
       rating !== undefined &&
       rating !== null &&
-      (!Number.isInteger(Number(rating)) ||
+      (
+        !Number.isInteger(Number(rating)) ||
         Number(rating) < 1 ||
-        Number(rating) > 5)
+        Number(rating) > 5
+      )
     ) {
       return res.status(400).json({
         success: false,
@@ -150,15 +241,29 @@ const submitOutcome = async (req, res) => {
       });
     }
 
-    const followUp = await FollowUp.findOne({
-      _id: req.params.id,
-      createdBy: req.user._id
-    });
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid follow-up ID"
+      });
+    }
+
+    const followUp = await getAccessibleFollowUp(
+      req.params.id,
+      req.user
+    );
 
     if (!followUp) {
       return res.status(404).json({
         success: false,
-        message: "Follow-up not found"
+        message: "Follow-up not found in your workspace"
+      });
+    }
+
+    if (followUp.responseStatus === "Responded") {
+      return res.status(400).json({
+        success: false,
+        message: "Customer outcome has already been submitted"
       });
     }
 
@@ -190,17 +295,32 @@ const submitOutcome = async (req, res) => {
   }
 };
 
+// MARK NO RESPONSE
 const markNoResponse = async (req, res) => {
   try {
-    const followUp = await FollowUp.findOne({
-      _id: req.params.id,
-      createdBy: req.user._id
-    });
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Admin or Service Desk can update follow-ups"
+      });
+    }
+
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid follow-up ID"
+      });
+    }
+
+    const followUp = await getAccessibleFollowUp(
+      req.params.id,
+      req.user
+    );
 
     if (!followUp) {
       return res.status(404).json({
         success: false,
-        message: "Follow-up not found"
+        message: "Follow-up not found in your workspace"
       });
     }
 
@@ -212,6 +332,7 @@ const markNoResponse = async (req, res) => {
     }
 
     followUp.responseStatus = "No Response";
+
     await followUp.save();
 
     res.status(200).json({
@@ -232,7 +353,6 @@ module.exports = {
   createFollowUp,
   getFollowUps,
   getFollowUpById,
-    submitOutcome,
-    markNoResponse
-
+  submitOutcome,
+  markNoResponse
 };

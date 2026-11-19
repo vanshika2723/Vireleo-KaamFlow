@@ -43,47 +43,57 @@ const serviceRequestSchema = new mongoose.Schema(
       default: ""
     },
 
-   status: {
-  type: String,
-  enum: [
-    "Needs Review",
-    "Accepted",
-    "Needs More Information",
-    "Out of Coverage",
-    "Declined",
-    "Open",
-    "In Diagnosis",
-    "Diagnosis Completed",
-    "Repair In Progress",
-    "Repair Completed",
-    "QC Passed",
-    "QC Failed",
-    "Ready for Handover",
-    "Completed"
-  ],
-  default: "Needs Review"
-},
+    status: {
+      type: String,
+      enum: [
+        "Needs Review",
+        "Accepted",
+        "Needs More Information",
+        "Out of Coverage",
+        "Declined",
+        "Open",
+        "In Diagnosis",
+        "Diagnosis Completed",
+        "Repair In Progress",
+        "Repair Completed",
+        "QC Passed",
+        "QC Failed",
+        "Ready for Handover",
+        "Completed"
+      ],
+      default: "Needs Review"
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true
     },
+
+    // Shared business workspace
+    businessId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true
+    },
+
     assignedTechnician: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User",
-  default: null
-},
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
 
-assignedBy: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "User",
-  default: null
-},
+    assignedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
 
-assignedAt: {
-  type: Date,
-  default: null
-},
+    assignedAt: {
+      type: Date,
+      default: null
+    }
   },
   {
     timestamps: true

@@ -37,9 +37,46 @@ const userSchema = new mongoose.Schema(
       default: "Service Desk"
     },
 
+    // Shared workspace identification
+    businessId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+      index: true
+    },
+
     phone: {
       type: String,
       default: ""
+    },
+
+    businessName: {
+      type: String,
+      default: ""
+    },
+
+    businessAddress: {
+      type: String,
+      default: ""
+    },
+
+    notificationPreferences: {
+      newRequest: {
+        type: Boolean,
+        default: true
+      },
+      repairUpdates: {
+        type: Boolean,
+        default: true
+      },
+      paymentUpdates: {
+        type: Boolean,
+        default: true
+      },
+      customerFeedback: {
+        type: Boolean,
+        default: false
+      }
     },
 
     isActive: {

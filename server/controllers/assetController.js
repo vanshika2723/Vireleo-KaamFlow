@@ -2,6 +2,25 @@
 const Asset = require("../models/Asset");
 const Customer = require("../models/Customer");
 
+// Get user's workspace ID
+const getWorkspaceId = (user) => {
+  return user.businessId ||
+    (user.role === "Admin" ? user._id : null);
+};
+
+// Shared workspace scope
+const getAssetScope = (user) => {
+  if (["Admin", "Service Desk"].includes(user.role)) {
+    const businessId = getWorkspaceId(user);
+
+    if (businessId) {
+      return { businessId };
+    }
+  }
+
+  return { createdBy: user._id };
+};
+
 // CREATE ASSET
 const createAsset = async (req, res) => {
   try {
@@ -23,16 +42,32 @@ const createAsset = async (req, res) => {
       });
     }
 
-    const customerExists = await Customer.findOne({
+    const customerScope = {
       _id: customer,
-      createdBy: req.user._id,
       isActive: true
-    });
+    };
+
+    if (["Admin", "Service Desk"].includes(req.user.role)) {
+      const businessId = getWorkspaceId(req.user);
+
+      if (!businessId) {
+        return res.status(403).json({
+          success: false,
+          message: "User is not connected to a business workspace"
+        });
+      }
+
+      customerScope.businessId = businessId;
+    } else {
+      customerScope.createdBy = req.user._id;
+    }
+
+    const customerExists = await Customer.findOne(customerScope);
 
     if (!customerExists) {
       return res.status(404).json({
         success: false,
-        message: "Customer not found"
+        message: "Customer not found in your workspace"
       });
     }
 
@@ -45,7 +80,8 @@ const createAsset = async (req, res) => {
       purchaseDate: purchaseDate || null,
       condition,
       description,
-      createdBy: req.user._id
+      createdBy: req.user._id,
+      businessId: customerExists.businessId || null
     });
 
     res.status(201).json({
@@ -65,9 +101,9 @@ const createAsset = async (req, res) => {
 // GET ALL ASSETS
 const getAssets = async (req, res) => {
   try {
-    const assets = await Asset.find({
-      createdBy: req.user._id
-    })
+    const assets = await Asset.find(
+      getAssetScope(req.user)
+    )
       .populate("customer", "name email phone")
       .sort({ createdAt: -1 });
 
@@ -90,7 +126,7 @@ const getAssetById = async (req, res) => {
   try {
     const asset = await Asset.findOne({
       _id: req.params.id,
-      createdBy: req.user._id
+      ...getAssetScope(req.user)
     }).populate("customer", "name email phone");
 
     if (!asset) {
@@ -137,7 +173,7 @@ const updateAsset = async (req, res) => {
     const asset = await Asset.findOneAndUpdate(
       {
         _id: req.params.id,
-        createdBy: req.user._id
+        ...getAssetScope(req.user)
       },
       updates,
       {
@@ -172,7 +208,7 @@ const deleteAsset = async (req, res) => {
   try {
     const asset = await Asset.findOneAndDelete({
       _id: req.params.id,
-      createdBy: req.user._id
+      ...getAssetScope(req.user)
     });
 
     if (!asset) {

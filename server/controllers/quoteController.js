@@ -3,9 +3,40 @@ const Quote = require("../models/Quote");
 const ServiceRequest = require("../models/ServiceRequest");
 const Diagnosis = require("../models/Diagnosis");
 
+const getWorkspaceId = (user) => {
+  return user.businessId ||
+    (user.role === "Admin" ? user._id : null);
+};
+
+// CHECK REQUEST ACCESS
+const getAccessibleRequest = async (serviceRequest, user) => {
+  const isOperationsStaff = [
+    "Admin",
+    "Service Desk"
+  ].includes(user.role);
+
+  if (!isOperationsStaff) return null;
+
+  const businessId = getWorkspaceId(user);
+
+  if (!businessId) return null;
+
+  return ServiceRequest.findOne({
+    _id: serviceRequest,
+    businessId
+  });
+};
+
 // CREATE QUOTE
 const createQuote = async (req, res) => {
   try {
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Admin or Service Desk can create quotes"
+      });
+    }
+
     const {
       serviceRequest,
       laborCost,
@@ -22,20 +53,20 @@ const createQuote = async (req, res) => {
       });
     }
 
-    const request = await ServiceRequest.findOne({
-      _id: serviceRequest,
-      createdBy: req.user._id
-    });
+    const request = await getAccessibleRequest(
+      serviceRequest,
+      req.user
+    );
 
     if (!request) {
       return res.status(404).json({
         success: false,
-        message: "Service request not found"
+        message: "Service request not found in your workspace"
       });
     }
 
     const diagnosis = await Diagnosis.findOne({
-      serviceRequest
+      serviceRequest: request._id
     });
 
     if (!diagnosis) {
@@ -93,11 +124,11 @@ const createQuote = async (req, res) => {
       Number(additionalCharges || 0);
 
     const latestQuote = await Quote.findOne({
-      serviceRequest
+      serviceRequest: request._id
     }).sort({ version: -1 });
 
     const quote = await Quote.create({
-      serviceRequest,
+      serviceRequest: request._id,
       diagnosis: diagnosis._id,
       version: latestQuote ? latestQuote.version + 1 : 1,
       laborCost: Number(laborCost),
@@ -127,8 +158,30 @@ const createQuote = async (req, res) => {
 // GET ALL QUOTES
 const getQuotes = async (req, res) => {
   try {
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot access quotes"
+      });
+    }
+
+    const businessId = getWorkspaceId(req.user);
+
+    if (!businessId) {
+      return res.status(403).json({
+        success: false,
+        message: "User is not connected to a workspace"
+      });
+    }
+
+    const requests = await ServiceRequest.find({
+      businessId
+    }).select("_id");
+
+    const requestIds = requests.map((request) => request._id);
+
     const quotes = await Quote.find({
-      createdBy: req.user._id
+      serviceRequest: { $in: requestIds }
     })
       .populate("serviceRequest", "requestId reportedSymptom status")
       .sort({ createdAt: -1 });
@@ -150,14 +203,24 @@ const getQuotes = async (req, res) => {
 // GET SINGLE QUOTE
 const getQuoteById = async (req, res) => {
   try {
-    const quote = await Quote.findOne({
-      _id: req.params.id,
-      createdBy: req.user._id
-    })
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "You cannot access this quote"
+      });
+    }
+
+    const businessId = getWorkspaceId(req.user);
+
+    const quote = await Quote.findById(req.params.id)
       .populate("serviceRequest")
       .populate("diagnosis");
 
-    if (!quote) {
+    if (
+      !quote ||
+      !businessId ||
+      quote.serviceRequest?.businessId?.toString() !== businessId.toString()
+    ) {
       return res.status(404).json({
         success: false,
         message: "Quote not found"
@@ -176,8 +239,17 @@ const getQuoteById = async (req, res) => {
     });
   }
 };
+
+// UPDATE QUOTE STATUS
 const updateQuoteStatus = async (req, res) => {
   try {
+    if (!["Admin", "Service Desk"].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Admin or Service Desk can update quote status"
+      });
+    }
+
     const { status } = req.body;
 
     if (!["Sent", "Approved", "Rejected"].includes(status)) {
@@ -187,15 +259,19 @@ const updateQuoteStatus = async (req, res) => {
       });
     }
 
-    const quote = await Quote.findOne({
-      _id: req.params.id,
-      createdBy: req.user._id
-    });
+    const businessId = getWorkspaceId(req.user);
 
-    if (!quote) {
+    const quote = await Quote.findById(req.params.id)
+      .populate("serviceRequest");
+
+    if (
+      !quote ||
+      !businessId ||
+      quote.serviceRequest?.businessId?.toString() !== businessId.toString()
+    ) {
       return res.status(404).json({
         success: false,
-        message: "Quote not found"
+        message: "Quote not found in your workspace"
       });
     }
 
@@ -232,9 +308,10 @@ const updateQuoteStatus = async (req, res) => {
     });
   }
 };
+
 module.exports = {
   createQuote,
   getQuotes,
   getQuoteById,
-    updateQuoteStatus
+  updateQuoteStatus
 };

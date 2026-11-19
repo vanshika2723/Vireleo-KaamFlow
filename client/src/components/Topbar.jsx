@@ -1,10 +1,36 @@
 
-import { Bell, Search, Menu, ChevronRight } from "lucide-react";
+import { Bell, Search, Menu, ChevronRight, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 function Topbar({ onMenuClick, pageTitle = "Dashboard" }) {
+  const navigate = useNavigate();
+
+  let user = {};
+
+  try {
+    user = JSON.parse(localStorage.getItem("kaamflow_user") || "{}");
+  } catch {
+    user = {};
+  }
+
+  const userName = user.name || "Admin";
+  const userRole = user.role || "Administrator";
+
+  const initials = userName
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleLogout = () => {
+    localStorage.removeItem("kaamflow_token");
+    localStorage.removeItem("kaamflow_user");
+    navigate("/login", { replace: true });
+  };
+
   return (
     <header className="sticky top-0 z-30 flex h-[72px] items-center justify-between border-b border-slate-100 bg-white/95 px-4 backdrop-blur-md sm:px-6 lg:px-8">
-
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
@@ -21,8 +47,7 @@ function Topbar({ onMenuClick, pageTitle = "Dashboard" }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 sm:gap-5">
-
+      <div className="flex items-center gap-2 sm:gap-5">
         <div className="hidden h-10 w-64 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 md:flex">
           <Search size={17} className="text-slate-400" />
           <input
@@ -45,15 +70,24 @@ function Topbar({ onMenuClick, pageTitle = "Dashboard" }) {
 
         <div className="flex items-center gap-2">
           <div className="grid h-9 w-9 place-items-center rounded-full bg-violet-100 text-xs font-extrabold text-violet-700">
-            VK
+            {initials || "AD"}
           </div>
 
           <div className="hidden sm:block">
-            <p className="text-xs font-bold text-slate-700">Admin</p>
-            <p className="text-[10px] text-slate-400">Administrator</p>
+            <p className="text-xs font-bold text-slate-700">{userName}</p>
+            <p className="text-[10px] text-slate-400">{userRole}</p>
           </div>
         </div>
 
+        <button
+          onClick={handleLogout}
+          title="Logout"
+          aria-label="Logout"
+          className="flex h-10 items-center gap-2 rounded-xl border border-rose-100 px-3 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+        >
+          <LogOut size={17} />
+          <span className="hidden sm:inline">Logout</span>
+        </button>
       </div>
     </header>
   );

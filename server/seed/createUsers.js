@@ -23,9 +23,18 @@ const createUsers = async () => {
         email: "technician@kaamflow.com",
         password: "Tech@123",
         role: "Technician"
+      },
+      {
+        name: "KAAMFLOW Service Desk",
+        email: "servicedesk@kaamflow.com",
+        password: "Desk@123",
+        role: "Service Desk"
       }
     ];
 
+    const savedUsers = {};
+
+    // Create or update accounts
     for (const userData of users) {
       let user = await User.findOne({
         email: userData.email
@@ -41,10 +50,35 @@ const createUsers = async () => {
 
         console.log(`${userData.role} account updated`);
       } else {
-        await User.create(userData);
+        user = await User.create(userData);
         console.log(`${userData.role} account created`);
       }
+
+      savedUsers[userData.role] = user;
     }
+
+    // Admin is the workspace owner
+    const admin = savedUsers["Admin"];
+
+    admin.businessId = admin._id;
+
+    await admin.save();
+
+    // Connect Service Desk and Technician to Admin workspace
+    const teamRoles = ["Service Desk", "Technician"];
+
+    for (const role of teamRoles) {
+      const member = savedUsers[role];
+
+      member.businessId = admin._id;
+
+      await member.save();
+
+      console.log(`${role} connected to Admin workspace`);
+    }
+
+    console.log("\nWorkspace setup completed!");
+    console.log("Workspace ID:", admin._id.toString());
 
   } catch (error) {
     console.error("Seed error:", error.message);

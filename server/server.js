@@ -13,6 +13,7 @@ const repairRoutes = require("./routes/repairRoutes");
 const followUpRoutes = require("./routes/FollowUpRoutes");
 const outcomeAnalyticsRoutes = require("./routes/outcomeAnalyticsRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
+const userRoutes = require("./routes/userRoutes");
 const qcRoutes = require("./routes/qcRoutes");
 dotenv.config();
 
@@ -25,8 +26,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/diagnosis", diagnosisRoutes);
-app.use("/api/repairs", repairRoutes);
+app.use("/api/repair-logs", repairRoutes);
 app.use("/api/quotes", quoteRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/outcome-analytics", outcomeAnalyticsRoutes);
 app.use("/api/followups", followUpRoutes);
 app.use("/api/qc", qcRoutes);

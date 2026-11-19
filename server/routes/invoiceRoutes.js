@@ -8,11 +8,13 @@ const { protect } = require("../middleware/authMiddleware");
 const {
   createInvoice,
   getInvoiceByRequest,
-    updatePaymentStatus
+  getInvoices,
+  updatePaymentStatus
 } = require("../controllers/invoiceController");
 
 router.use(protect);
 
+router.get("/", getInvoices);
 router.post("/:requestId", createInvoice);
 router.get("/:requestId", getInvoiceByRequest);
 router.patch("/:id/payment", updatePaymentStatus);
