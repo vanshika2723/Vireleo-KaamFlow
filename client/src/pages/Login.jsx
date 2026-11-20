@@ -23,45 +23,56 @@ function Login() {
     });
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError("");
 
-    if (!formData.email || !formData.password) {
-      setError("Please enter your email and password.");
-      return;
+const handleLogin = async (e) => {
+  e.preventDefault();
+
+  if (loading) return;
+
+  setError("");
+
+  const email = formData.email.trim().toLowerCase();
+  const password = formData.password;
+
+  if (!email || !password) {
+    setError("Please enter your email and password.");
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const { data } = await API.post("/auth/login", {
+      email,
+      password,
+    });
+
+    const token = data.token || data.data?.token;
+    const user = data.user || data.data?.user;
+
+    if (!token) {
+      throw new Error("Authentication token missing.");
     }
 
-    try {
-      setLoading(true);
+    localStorage.setItem("kaamflow_token", token);
 
-      const response = await API.post("/auth/login", formData);
-      const result = response.data;
-
-      const token = result.token || result.data?.token;
-      const user = result.user || result.data?.user;
-
-      if (!token) {
-        throw new Error("Login response did not contain an authentication token.");
-      }
-
-      localStorage.setItem("kaamflow_token", token);
-
-      if (user) {
-        localStorage.setItem("kaamflow_user", JSON.stringify(user));
-      }
-
-      navigate("/dashboard");
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-        err.message ||
-        "Login failed. Please try again."
-      );
-    } finally {
-      setLoading(false);
+    if (user) {
+      localStorage.setItem("kaamflow_user", JSON.stringify(user));
     }
-  };
+
+    navigate("/dashboard", { replace: true });
+
+  } catch (err) {
+    setError(
+      err.response?.data?.message ||
+      err.message ||
+      "Login failed. Please try again."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-[#f5f7fc] flex items-center justify-center p-4">
