@@ -897,27 +897,66 @@ function Diagnosis() {
                     )}
                   </div>
 
-                  <div>
-                    <p className="text-[10px] font-bold uppercase text-slate-400">
-                      Evidence Files
-                    </p>
-                    {selectedRequest.diagnosis.evidence?.length ? (
-                      <div className="mt-2 space-y-2">
-                        {selectedRequest.diagnosis.evidence.map((file, i) => (
-                          <div key={i} className="flex items-center gap-2 rounded-lg bg-slate-50 p-3">
-                            <FileText size={16} className="text-violet-600" />
-                            <span className="text-xs text-slate-600">
-                              {file.fileName}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-1 text-xs text-slate-400">
-                        No evidence uploaded.
-                      </p>
-                    )}
-                  </div>
+                 
+<div>
+  <p className="text-[10px] font-bold uppercase text-slate-400">
+    Evidence Files
+  </p>
+
+  {selectedRequest.diagnosis.evidence?.length ? (
+    <div className="mt-2 space-y-3">
+      {selectedRequest.diagnosis.evidence.map((file, i) => {
+        const serverURL = (API.defaults.baseURL || "http://localhost:5000/api")
+          .replace(/\/api\/?$/, "");
+
+        const fileURL = `${serverURL}${file.filePath}`;
+
+        const isImage = file.fileType?.startsWith("image/");
+
+        return (
+          <div
+            key={i}
+            className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+          >
+            {isImage && (
+              <a href={fileURL} target="_blank" rel="noreferrer">
+                <img
+                  src={fileURL}
+                  alt={file.fileName}
+                  className="mb-3 max-h-56 w-full rounded-lg object-contain bg-white"
+                />
+              </a>
+            )}
+
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileText size={18} className="shrink-0 text-violet-600" />
+                <span className="truncate text-xs font-medium text-slate-700">
+                  {file.fileName}
+                </span>
+              </div>
+
+              <a
+                href={fileURL}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0 rounded-lg bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-700"
+              >
+                <Eye size={13} className="mr-1 inline" />
+                View
+              </a>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  ) : (
+    <p className="mt-1 text-xs text-slate-400">
+      No evidence uploaded.
+    </p>
+  )}
+</div>
+
                 </>
               ) : (
                 <p className="rounded-xl bg-orange-50 p-4 text-xs text-orange-700">

@@ -35,7 +35,7 @@ const createInvoice = async (req, res) => {
     }
 
     const { requestId } = req.params;
-    const { notes } = req.body;
+  const { notes } = req.body || {};
 
     if (!mongoose.isValidObjectId(requestId)) {
       return res.status(400).json({

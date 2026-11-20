@@ -127,7 +127,8 @@ function Sidebar({ isOpen, onClose }) {
     }
   });
 
-  // Fetch service request count
+
+  // Fetch service request count only once
   useEffect(() => {
     let isMounted = true;
 
@@ -146,11 +147,8 @@ function Sidebar({ isOpen, onClose }) {
 
     fetchRequestCount();
 
-    const interval = setInterval(fetchRequestCount, 30000);
-
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
   }, []);
 

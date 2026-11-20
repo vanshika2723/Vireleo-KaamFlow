@@ -16,7 +16,7 @@ router.use(protect);
 
 router.get("/", getInvoices);
 router.post("/:requestId", createInvoice);
-router.get("/:requestId", getInvoiceByRequest);
+router.get("/request/:requestId", getInvoiceByRequest);
 router.patch("/:id/payment", updatePaymentStatus);
 
 module.exports = router;

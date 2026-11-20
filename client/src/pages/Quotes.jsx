@@ -265,36 +265,50 @@ function Quotes() {
     }
   };
 
-  const updateQuoteStatus = async (quote, status) => {
-    const actionMessages = {
-      Sent: "Send this quote?",
-      Approved: "Approve this quote?",
-      Rejected: "Reject this quote?"
-    };
 
-    if (!window.confirm(actionMessages[status])) {
-      return;
-    }
-
-    try {
-      setError("");
-      setMessage("");
-
-      await API.patch(`/quotes/${quote._id}/status`, {
-        status
-      });
-
-      setMessage(`Quote ${status.toLowerCase()} successfully!`);
-      setOpenMenuId(null);
-
-      await loadData();
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-        "Unable to update quote status."
-      );
-    }
+const updateQuoteStatus = async (quote, status) => {
+  const actionMessages = {
+    Sent: "Send this quote?",
+    Approved: "Approve this quote?",
+    Rejected: "Reject this quote?"
   };
+
+  if (!window.confirm(actionMessages[status])) {
+    return;
+  }
+
+  try {
+    setError("");
+    setMessage("");
+
+    const response = await API.patch(`/quotes/${quote._id}/status`, {
+      status
+    });
+
+    // Update only the selected quote locally
+    setQuotes((previousQuotes) =>
+      previousQuotes.map((item) =>
+        item._id === quote._id
+          ? {
+              ...item,
+              ...response.data.quote,
+              status: response.data.quote?.status || status
+            }
+          : item
+      )
+    );
+
+    setMessage(`Quote ${status.toLowerCase()} successfully!`);
+    setOpenMenuId(null);
+
+  } catch (err) {
+    setError(
+      err.response?.data?.message ||
+      "Unable to update quote status."
+    );
+  }
+};
+
 
   const openQuoteDetails = (quote) => {
     setSelectedQuote(quote);

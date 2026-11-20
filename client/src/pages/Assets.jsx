@@ -67,9 +67,11 @@ function Assets() {
     loadPageData();
   }, []);
 
-  const loadPageData = async () => {
+ const loadPageData = async (showLoader = true) => {
     try {
-      setLoading(true);
+     if (showLoader) {
+  setLoading(true);
+}
       setError("");
 
       const [assetResponse, customerResponse] = await Promise.all([
@@ -98,7 +100,9 @@ function Assets() {
         "Unable to load assets or customers. Check your login and backend connection."
       );
     } finally {
-      setLoading(false);
+    if (showLoader) {
+  setLoading(false);
+}
     }
   };
 
@@ -136,10 +140,12 @@ function Assets() {
       const response = await API.post("/assets", payload);
 
       if (response.data.success) {
-        setFormData(initialForm);
-        setShowForm(false);
-        setSuccessMessage("Asset added successfully!");
-        await loadPageData();
+     setFormData(initialForm);
+setShowForm(false);
+setSuccessMessage("Asset added successfully!");
+
+// Refresh asset list in background
+loadPageData(false);
       }
     } catch (err) {
       setFormError(

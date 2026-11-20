@@ -40,9 +40,11 @@ function Customers() {
     fetchCustomers();
   }, []);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (showLoader = true) => {
     try {
-      setLoading(true);
+     if (showLoader) {
+  setLoading(true);
+}
       setError("");
 
       const response = await API.get("/customers");
@@ -61,7 +63,9 @@ function Customers() {
         "Unable to load customers. Please check your login and backend connection."
       );
     } finally {
-      setLoading(false);
+   if (showLoader) {
+  setLoading(false);
+}
     }
   };
 
@@ -99,7 +103,7 @@ function Customers() {
         setFormData(initialForm);
         setShowForm(false);
         setSuccessMessage("Customer added successfully!");
-        await fetchCustomers();
+      fetchCustomers(false);
       }
     } catch (err) {
       setFormError(

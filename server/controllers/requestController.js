@@ -580,15 +580,18 @@ const updateRequestStatus = async (req, res) => {
     await request.save();
 
     // Send customer status update email
-    try {
-      const customer = await Customer.findById(request.customer)
-        .select("name email");
+  
+    // Send customer status update email in background
+    Promise.resolve().then(async () => {
+      try {
+        const customer = await Customer.findById(request.customer)
+          .select("name email");
 
-      if (customer?.email) {
-        await sendEmail({
-          to: customer.email,
-          subject: `KAAMFLOW - Service Update (${request.requestId})`,
-          text: `Hello ${customer.name},
+        if (customer?.email) {
+          await sendEmail({
+            to: customer.email,
+            subject: `KAAMFLOW - Service Update (${request.requestId})`,
+            text: `Hello ${customer.name},
 
 Your repair service request has been updated.
 
@@ -599,19 +602,17 @@ Thank you for choosing KAAMFLOW.
 
 Regards,
 KAAMFLOW Support Team`
-        });
+          });
 
-        console.log("Customer status notification email sent.");
-      } else {
-        console.log("Customer email not available. Notification skipped.");
+          console.log("Customer status notification email sent.");
+        } else {
+          console.log("Customer email not available. Notification skipped.");
+        }
+      } catch (emailError) {
+        console.error("Customer notification email failed:", emailError);
       }
-    } catch (emailError) {
-  console.error("Customer notification email failed:");
-  console.error(emailError);
-  console.error("Error message:", emailError?.message);
-  console.error("Error code:", emailError?.code);
-  console.error("Error response:", emailError?.response);
-}
+    });
+
 
     return res.status(200).json({
       success: true,
