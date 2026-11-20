@@ -93,6 +93,48 @@ const serviceRequestSchema = new mongoose.Schema(
     assignedAt: {
       type: Date,
       default: null
+    },
+        stageTimestamps: {
+      requestReceivedAt: {
+        type: Date,
+        default: Date.now
+      },
+      diagnosisStartedAt: {
+        type: Date,
+        default: null
+      },
+      diagnosisCompletedAt: {
+        type: Date,
+        default: null
+      },
+      quoteSentAt: {
+        type: Date,
+        default: null
+      },
+      approvedAt: {
+        type: Date,
+        default: null
+      },
+      repairStartedAt: {
+        type: Date,
+        default: null
+      },
+      repairCompletedAt: {
+        type: Date,
+        default: null
+      },
+      qcPassedAt: {
+        type: Date,
+        default: null
+      },
+      readyForHandoverAt: {
+        type: Date,
+        default: null
+      },
+      completedAt: {
+        type: Date,
+        default: null
+      }
     }
   },
   {

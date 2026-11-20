@@ -16,7 +16,8 @@ const pageTitles = {
   "/invoices": "Invoices",
   "/fixloop": "FixLoop Outcomes",
   "/reports": "Reports",
-  "/settings": "Settings"
+  "/settings": "Settings",
+  "/technician-applications": "Technician Applications",
 };
 
 function Layout() {

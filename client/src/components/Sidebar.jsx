@@ -38,7 +38,12 @@ const adminNavigation = [
       { label: "Technicians", path: "/technicians", icon: Wrench },
       { label: "Repair Logs", path: "/repair-logs", icon: ClipboardCheck },
       { label: "Quality Control", path: "/quality-control", icon: ShieldCheck },
-      { label: "Invoices", path: "/invoices", icon: Receipt }
+      { label: "Invoices", path: "/invoices", icon: Receipt },
+      {
+  label: "Technician Applications",
+  path: "/technician-applications",
+  icon: ClipboardList
+},
     ]
   },
   {

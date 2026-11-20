@@ -11,10 +11,17 @@ const {
   getRequests,
   getRequestById,
   updateRequestStatus,
-  assignTechnician
+  assignTechnician,
+  createPublicRequest,
+  trackPublicRequest
 } = require("../controllers/requestController");
+// Public customer repair request
+router.post("/public", createPublicRequest);
+// Public customer service tracking
+router.post("/track", trackPublicRequest);
 
 router.use(protect);
+
 
 router.post("/", createRequest);
 router.get("/", getRequests);

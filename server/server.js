@@ -1,3 +1,4 @@
+require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
@@ -14,8 +15,11 @@ const followUpRoutes = require("./routes/FollowUpRoutes");
 const outcomeAnalyticsRoutes = require("./routes/outcomeAnalyticsRoutes");
 const invoiceRoutes = require("./routes/invoiceRoutes");
 const userRoutes = require("./routes/userRoutes");
+const technicianApplicationRoutes = require("./routes/technicianApplicationRoutes");
 const qcRoutes = require("./routes/qcRoutes");
-dotenv.config();
+const technicianApprovalRoutes = require("./routes/technicianApprovalRoutes");
+
+
 
 const app = express();
 
@@ -31,6 +35,8 @@ app.use("/api/quotes", quoteRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/outcome-analytics", outcomeAnalyticsRoutes);
 app.use("/api/followups", followUpRoutes);
+app.use("/api/technician-applications", technicianApplicationRoutes);
+app.use("/api/admin/technician-applications", technicianApprovalRoutes);
 app.use("/api/qc", qcRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/customers", customerRoutes);
