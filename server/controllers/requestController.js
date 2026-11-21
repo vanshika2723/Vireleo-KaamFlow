@@ -224,13 +224,14 @@ const createPublicRequest = async (req, res) => {
       status: "Needs Review"
     });
 
-    // Send repair request confirmation email
+       // Send repair request confirmation email in background
     if (customer.email) {
-      try {
-        await sendEmail({
-          to: customer.email,
-          subject: `KAAMFLOW - Repair Request Received (${serviceRequest.requestId})`,
-          text: `Hello ${customer.name},
+      Promise.resolve()
+        .then(() =>
+          sendEmail({
+            to: customer.email,
+            subject: `KAAMFLOW - Repair Request Received (${serviceRequest.requestId})`,
+            text: `Hello ${customer.name},
 
 Your repair request has been successfully submitted to KAAMFLOW.
 
@@ -247,38 +248,39 @@ Thank you for choosing KAAMFLOW.
 
 Regards,
 KAAMFLOW Support Team`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; color: #334155;">
-              <h2 style="color: #4f46e5;">KAAMFLOW</h2>
-              <h3>Repair Request Received!</h3>
-              <p>Hello ${customer.name},</p>
-              <p>Your repair request has been successfully submitted.</p>
-              <div style="background: #f8fafc; padding: 18px; border-radius: 10px;">
-                <p><strong>Request ID:</strong> ${serviceRequest.requestId}</p>
-                <p><strong>Appliance:</strong> ${category}</p>
-                <p><strong>Brand:</strong> ${brand}</p>
-                <p><strong>Model:</strong> ${model || "Not specified"}</p>
-                <p><strong>Problem:</strong> ${reportedSymptom}</p>
-                <p><strong>Status:</strong> ${serviceRequest.status}</p>
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; color: #334155;">
+                <h2 style="color: #4f46e5;">KAAMFLOW</h2>
+                <h3>Repair Request Received!</h3>
+                <p>Hello ${customer.name},</p>
+                <p>Your repair request has been successfully submitted.</p>
+                <div style="background: #f8fafc; padding: 18px; border-radius: 10px;">
+                  <p><strong>Request ID:</strong> ${serviceRequest.requestId}</p>
+                  <p><strong>Appliance:</strong> ${category}</p>
+                  <p><strong>Brand:</strong> ${brand}</p>
+                  <p><strong>Model:</strong> ${model || "Not specified"}</p>
+                  <p><strong>Problem:</strong> ${reportedSymptom}</p>
+                  <p><strong>Status:</strong> ${serviceRequest.status}</p>
+                </div>
+                <p>Please keep your Request ID safe for tracking your repair.</p>
+                <p>Thank you for choosing KAAMFLOW!</p>
+                <p>KAAMFLOW Support Team</p>
               </div>
-              <p>Please keep your Request ID safe for tracking your repair.</p>
-              <p>Thank you for choosing KAAMFLOW!</p>
-              <p>KAAMFLOW Support Team</p>
-            </div>
-          `
+            `
+          })
+        )
+        .then(() => {
+          console.log("Repair request confirmation email sent.");
+        })
+        .catch((emailError) => {
+          console.error(
+            "Repair confirmation email failed:",
+            emailError.message
+          );
         });
-
-        console.log("Repair request confirmation email sent.");
-      } catch (emailError) {
-        console.error(
-          "Repair confirmation email failed:",
-          emailError.message
-        );
-      }
     } else {
       console.log("Customer email not provided. Confirmation email skipped.");
     }
-
     return res.status(201).json({
       success: true,
       message: "Your repair request has been submitted successfully",
