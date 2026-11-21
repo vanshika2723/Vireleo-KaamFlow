@@ -28,7 +28,7 @@ function TechnicianApply() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+if (loading) return;
     setLoading(true);
     setSuccess("");
     setError("");

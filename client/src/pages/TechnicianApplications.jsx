@@ -61,7 +61,11 @@ const [activationLink, setActivationLink] = useState("");
 
       setSuccess(response.data.message);
       setActivationLink(response.data.activationLink || "");
-      await fetchApplications();
+      setApplications((prev) =>
+  prev.map((app) =>
+    app._id === id ? { ...app, status: "Approved" } : app
+  )
+);
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -90,7 +94,11 @@ const [activationLink, setActivationLink] = useState("");
       );
 
       setSuccess(response.data.message);
-      await fetchApplications();
+     setApplications((prev) =>
+  prev.map((app) =>
+    app._id === id ? { ...app, status: "Rejected" } : app
+  )
+);
     } catch (err) {
       setError(
         err.response?.data?.message ||
